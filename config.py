@@ -8,7 +8,21 @@ class Config:
         self.timelimit = 60
 
         self.seed = 100
-        self.k = 3
+        self.k = 5
+        self.gosdt_timelimit = 10*60
+
+        self.logger = True
+
+        self.rf_depth = 6
+        self.rf_nestimators = 50
+        self.dt_depth = 3
+        self.p1 = 1
+        self.p2 = 1
+        self.lambda0 = 0.1
+        self.lambda1 = 1
+
+        self.fold = ""
+        self.load_thresholds = False
 
     def set_name(self, name):
         self.name = name
@@ -17,7 +31,10 @@ class Config:
         if os.path.exists(self.results_dir)==False:
             os.makedirs(self.results_dir)
 
-    def get_filename(self, type_, ext='csv'):
+    def get_filename(self, type_, ext='txt'):
         return f"{self.results_dir}/{cfg.seed}_{type_}.{ext}"
+
+    def get_filename_fold(self, type_, ext='txt'):
+        return f"{self.results_dir}/{cfg.seed}_{type_}_{self.fold}.{ext}"
 
 cfg = Config()

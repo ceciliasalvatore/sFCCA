@@ -7,21 +7,22 @@ from config import cfg
 
 class Dataset:
     def __init__(self, test_size=0.2):
-        df = pd.read_csv(cfg.data_dir)
-        self.label_column = df.columns[-1]
-        self.feature_columns = df.columns[:-1]
-        self.classes_ = df[self.label_column].unique()
+        self.data = pd.read_csv(cfg.data_dir)
+        self.label_column = self.data.columns[-1]
+        self.feature_columns = self.data.columns[:-1]
+        self.classes_ = self.data[self.label_column].unique()
 
         """if os.path.exists(cfg.get_filename('train')) and os.path.exists(cfg.get_filename('test')):
             self.data_tr = pd.read_csv(cfg.get_filename('train'))
             self.data_ts = pd.read_csv(cfg.get_filename('test'))
         else:"""
-        self.data_ts = df.sample(frac=test_size, random_state=cfg.seed)
-        self.data_tr = df.drop(index=self.data_ts.index)
+        #self.data_ts = df.sample(frac=test_size, random_state=cfg.seed)
+        #self.data_tr = df.drop(index=self.data_ts.index)
 
         scaler = MinMaxScaler()
-        self.data_tr[self.feature_columns] = scaler.fit_transform(self.data_tr[self.feature_columns])
-        self.data_ts[self.feature_columns] = scaler.transform(self.data_ts[self.feature_columns])
+        self.data[self.feature_columns] = scaler.fit_transform(self.data[self.feature_columns])
+        #self.data_tr[self.feature_columns] = scaler.fit_transform(self.data_tr[self.feature_columns])
+        #self.data_ts[self.feature_columns] = scaler.transform(self.data_ts[self.feature_columns])
 
         #self.data_tr.to_csv(cfg.get_filename('train'), index=False)
         #self.data_ts.to_csv(cfg.get_filename('test'), index=False)
@@ -33,7 +34,13 @@ class Dataset:
         #self.lb = np.min(self.x_tr,axis=0).tolist()
         #self.ub = np.max(self.x_tr,axis=0).tolist()
 
-    def get_x_tr(self):
+    def get_x(self):
+        return self.data[self.feature_columns]
+
+    def get_y(self):
+        return self.data[self.label_column]
+
+    """def get_x_tr(self):
         return self.data_tr[self.feature_columns]
 
     def get_x_ts(self):
@@ -43,7 +50,7 @@ class Dataset:
         return self.data_tr[self.label_column]
 
     def get_y_ts(self):
-        return self.data_ts[self.label_column]
+        return self.data_ts[self.label_column]"""
 
     @staticmethod
     def GetTollerance(x):

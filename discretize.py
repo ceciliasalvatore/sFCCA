@@ -1,3 +1,4 @@
+import os.path
 import warnings
 import pandas as pd
 import numpy as np
@@ -11,6 +12,8 @@ from gosdt.model.threshold_guess import compute_thresholds
 
 from dataset import Dataset
 from CounterfactualAnalysis.counterfactualExplanations import CounterfactualExplanation
+
+from config import cfg
 
 class Discretizer:
     def fit(self, x, y):
@@ -78,17 +81,25 @@ class FCCA(Discretizer):
 
     def fit(self, x, y, x_ts=None, y_ts=None):
         self.estimator.fit(x, y)
-        eps = Dataset.GetTollerance(x)
-        if x_ts is not None and y_ts is not None:
-            x0, y0 = self.getRelevant(x, y)
+
+        if cfg.load_thresholds and os.path.exists(cfg.get_filename_fold('thresholds')):
+            self.tao = pd.read_csv(cfg.get_filename_fold('thresholds'))
         else:
-            x0, y0 = self.getRelevant(x, y)
-        xCE, yCE = self.getCounterfactualExplanations(x0, y0, eps)
-        self.tao = self.getCounterfactualThresholds(x0, xCE, eps)
-        if self.compress:
-            self.tao = self.compressThresholds(self.tao)
+            eps = Dataset.GetTollerance(x)
+            if x_ts is not None and y_ts is not None:
+                x0, y0 = self.getRelevant(x, y)
+            else:
+                x0, y0 = self.getRelevant(x, y)
+            if cfg.logger:
+                print(f"Computing {len(x0)} Counterfactuals", file=open(cfg.get_filename('logger'),mode='a'))
+            xCE, yCE = self.getCounterfactualExplanations(x0, y0, eps)
+            self.tao = self.getCounterfactualThresholds(x0, xCE, eps)
+            if self.compress:
+                self.tao = self.compressThresholds(self.tao)
+
+            self.tao.to_csv(cfg.get_filename_fold('thresholds'), index=False)
         if self.Q is not None:
-            self.chooseQ(x, y)
+            self.tao = self.chooseQ(x, y)
 
     def chooseQ(self, x, y, estimator=DecisionTreeClassifier(max_depth=4), split=None, tradeoff=0.5):
         levels = [0, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.98, 0.99]
@@ -98,7 +109,7 @@ class FCCA(Discretizer):
             else:
                 split = list(split)
             best_score = -1
-            self.Q_detected = None
+            Q = None
             for l in levels:
                 tao_l = self.selectThresholds(l)
                 average_score = 0.0
@@ -110,22 +121,24 @@ class FCCA(Discretizer):
                 average_score /= len(list(split))
                 if best_score < average_score:
                     best_score = average_score
-                    self.Q_detected = l
+                    Q = l
         elif self.Q=='Tradeoff':
             best_tradeoff = -1
-            self.Q_detected = None
+            Q = None
             for l in levels:
                 tao_l = self.selectThresholds(l)
                 tradeoff_l = (1-tradeoff)*self.compression_rate(x, y, tao_l) - tradeoff * self.inconsistency_rate(x, y, tao_l)
                 if best_tradeoff < tradeoff_l:
                     best_tradeoff = tradeoff_l
-                    self.Q_detected = l
+                    Q = l
         elif isinstance(self.Q, float):
-            self.Q_detected = self.Q
+            Q = self.Q
         else:
             raise Exception(f'Unknown strategy for selecting thresholds ({self.Q})')
 
-        self.tao = self.selectThresholds(self.Q_detected)
+        tao = self.selectThresholds(Q)
+
+        return tao
 
     def selectThresholds(self, Q):
         threshold_importance = np.quantile(self.tao['Count'], Q)
@@ -140,13 +153,6 @@ class FCCA(Discretizer):
             tao_i = pd.DataFrame((xCE[i][difference[i]>eps[i]]).tolist(), columns=['Threshold'])
             tao_i['Feature'] = i
             tao_i['Count'] = 1
-            """tao_i = pd.DataFrame(xCE[i][difference[i]>eps[i]].sort_values())
-            tao_i['flag'] = np.nan
-            mask = (tao_i[i].diff().isna()) | (tao_i[i].diff() > 0.01)
-            tao_i['flag'][mask] = np.arange(len(tao_i[mask]))
-            tao_i['flag'] = tao_i['flag'].fillna(method='ffill')
-            tao_i = tao_i.groupby('flag').agg(Threshold=(i,'mean'),Count=(i,'count'))
-            tao_i['Feature'] = i"""
             tao = pd.concat((tao,tao_i))
         tao.index = np.arange(len(tao))
 
@@ -169,14 +175,6 @@ class FCCA(Discretizer):
     def getCounterfactualExplanations(self, x0, y0, eps):
         solver = CounterfactualExplanation(self.estimator, lambda0=self.lambda0, lambda1=self.lambda1, lambda2=self.lambda2, eps=eps)
         xCE, yCE = solver.compute(x0, y0)
-        """def random_perturbation(x):
-            x = x.copy()
-            x[np.random.choice(x.index, 3)] += (np.random.random(3) * 2 - 1)*0.3
-            x[x<0]=0
-            x[x>1]=1
-            return x
-        xCE = x0.apply(random_perturbation,axis=1)
-        yCE = y0.apply(lambda x:self.counterfactual_labels[x])"""
         return xCE, yCE
 
     def getRelevant(self, x, y):
@@ -234,10 +232,10 @@ class FCCA_KFold(FCCA):
             self.tao = self.compressThresholds(self.tao)
 
         if self.Q is not None:
-            self.chooseQ(x, y, split=folds.split(x, y))
+            self.tao = self.chooseQ(x, y, split=folds.split(x, y))
 
 class GTRE(Discretizer):
     def fit(self, x, y):
-        _,_,self.tao,_ = compute_thresholds(x, y, 100, 1)
+        _,_,self.tao,_ = compute_thresholds(x.copy(), y.copy(), 100, 1)
         self.tao = pd.DataFrame(data={'Feature':[self.tao[i].split('<=')[0] for i in range(len(self.tao))],
                                       'Threshold':[float(self.tao[i].split('<=')[1]) for i in range(len(self.tao))]})
