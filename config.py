@@ -5,7 +5,7 @@ class Config:
         self.data_base_dir = "datasets"  # Directory for datasets
         self.results_base_dir = "results"  # Directory for results
 
-        self.timelimit = 60
+        self.timelimit = 1*60
 
         self.seed = 100
         self.k = 5
@@ -14,15 +14,22 @@ class Config:
         self.logger = True
 
         self.rf_depth = 6
-        self.rf_nestimators = 50
+        self.rf_nestimators = 100
+
         self.dt_depth = 3
+        self.regularization_factor = 1
+        self.train_size = None
+        self.Q = 0.8
+
         self.p1 = 1
         self.p2 = 1
         self.lambda0 = 0.1
         self.lambda1 = 1
 
+        self.q_list = [0, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.97, 0.98, 0.99]
+
         self.fold = ""
-        self.load_thresholds = False
+        self.load_thresholds = True
 
     def set_name(self, name):
         self.name = name
@@ -30,6 +37,10 @@ class Config:
         self.results_dir = f"{self.results_base_dir}/{self.name}"
         if os.path.exists(self.results_dir)==False:
             os.makedirs(self.results_dir)
+
+        if self.name == 'magic' or self.name == 'particle' or self.name == 'vehicle':
+            self.train_size = 5000
+            self.p1 = 0.7
 
     def get_filename(self, type_, ext='txt'):
         return f"{self.results_dir}/{cfg.seed}_{type_}.{ext}"

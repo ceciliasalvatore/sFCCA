@@ -6,7 +6,7 @@ import copy
 from sklearn.cluster import KMeans
 from sklearn.metrics import accuracy_score
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.model_selection import GridSearchCV, KFold
+from sklearn.model_selection import GridSearchCV, StratifiedKFold
 from scipy.spatial import distance_matrix
 from gosdt.model.threshold_guess import compute_thresholds
 
@@ -34,7 +34,7 @@ class Discretizer:
         if tao is None:
             tao = self.tao
         x_discr, y_discr = self.transform(x, y, tao)
-        u = np.sort(np.unique(x_discr,axis=0,return_index=True)[1])
+        u = np.unique(x_discr,axis=0,return_index=True)[1]
         compression_rate = 1 - len(u)/len(x)
         return compression_rate
 
@@ -52,6 +52,13 @@ class Discretizer:
                     count += np.min(cc)
         inconsistency_rate = count / len(x_discr)
         return inconsistency_rate
+
+class NoDiscretization(Discretizer):
+    def fit(self, x, y):
+        self.tao = pd.DataFrame(columns=['Feature','Threshold'])
+
+    def transform(self, x, y, tao=None):
+        return x, y
 
 class TotalDiscretizer(Discretizer):
     def fit(self, x, y):
@@ -82,6 +89,9 @@ class FCCA(Discretizer):
     def fit(self, x, y, x_ts=None, y_ts=None):
         self.estimator.fit(x, y)
 
+        if isinstance(self.estimator, GridSearchCV):
+            self.estimator = self.estimator.best_estimator_
+
         if cfg.load_thresholds and os.path.exists(cfg.get_filename_fold('thresholds')):
             self.tao = pd.read_csv(cfg.get_filename_fold('thresholds'))
         else:
@@ -98,14 +108,15 @@ class FCCA(Discretizer):
                 self.tao = self.compressThresholds(self.tao)
 
             self.tao.to_csv(cfg.get_filename_fold('thresholds'), index=False)
+
         if self.Q is not None:
             self.tao = self.chooseQ(x, y)
 
-    def chooseQ(self, x, y, estimator=DecisionTreeClassifier(max_depth=4), split=None, tradeoff=0.5):
+    def chooseQ(self, x, y, estimator=DecisionTreeClassifier(max_depth=4), split=None, tradeoff=0.8):
         levels = [0, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.98, 0.99]
         if self.Q=='KFold':
             if split is None:
-                split = list(KFold(self.k).split(x, y))
+                split = list(StratifiedKFold(cfg.k).split(x, y))
             else:
                 split = list(split)
             best_score = -1
@@ -182,6 +193,10 @@ class FCCA(Discretizer):
             index = np.where((self.estimator.predict(x) == y) &
                             (np.max(self.estimator.predict_proba(x), axis=1) >= self.p0) &
                             (np.max(self.estimator.predict_proba(x), axis=1) <= self.p1))[0]
+            if self.p1 < 1:
+                index2 = np.where((self.estimator.predict(x) == y) & (np.max(self.estimator.predict_proba(x), axis=1) >= self.p1))[0]
+                index2 = np.random.choice(index2, 0.1*len(index2))
+                index = np.concatenate((index, index2))
         except:
             warnings.warn(f"Disabling probability control in FCCA.getRelevant for estimator of class {self.estimator.__class__}")
             index = np.where((self.estimator.predict(x)==y))
@@ -210,7 +225,7 @@ class FCCA_KFold(FCCA):
         self.estimator.fit(x, y)
         print(self.estimator.best_estimator_)
 
-        folds = KFold(self.k)
+        folds = StratifiedKFold(self.k)
         compressors = {}
         for i, (train_idx, val_idx) in enumerate(folds.split(x, y)):
             x_tr = x.iloc[train_idx]
