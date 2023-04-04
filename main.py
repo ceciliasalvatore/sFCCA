@@ -2,7 +2,7 @@ import warnings
 import numpy as np
 import copy
 from sklearn.model_selection import GridSearchCV, StratifiedKFold
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier,GradientBoostingClassifier
 from sklearn import tree
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.svm import SVC
@@ -18,7 +18,7 @@ from config import cfg
 
 if __name__ == '__main__':
     datasets = ['boston', 'arrhythmia', 'ionosphere', 'magic', 'particle', 'vehicle']
-    datasets = ['magic', 'particle', 'vehicle']
+    #datasets = ['magic', 'particle', 'vehicle']
 
     for name in datasets:
         np.random.seed = cfg.seed
@@ -30,7 +30,7 @@ if __name__ == '__main__':
             if cfg.load_thresholds==False:
                 print(f"p, t", file=open(cfg.get_filename('counterfactuals_time'), mode='w'))
 
-        model = GridSearchCV(RandomForestClassifier(n_estimators=100, random_state=cfg.seed), param_grid={'max_depth':[3,4,6,8,10]}, cv=cfg.k)
+        """model = GridSearchCV(RandomForestClassifier(n_estimators=100, random_state=cfg.seed), param_grid={'max_depth':[3,4,6,8,10]}, cv=cfg.k)
         model.fit(dataset.get_x(), dataset.get_y())
         cfg.rf_depth = model.best_params_['max_depth']
 
@@ -48,7 +48,8 @@ if __name__ == '__main__':
 
         if cfg.logger:
             print(f"cv scores: {model.cv_results_['mean_test_score']}", file=open(cfg.get_filename('logger'), mode='a'))
-            print(f"Best target model: {cfg.rf_depth}", file=open(cfg.get_filename('logger'), mode='a'))
+            print(f"Best target model: {cfg.rf_depth}", file=open(cfg.get_filename('logger'), mode='a'))"""
+
         discretizers = ['continuous', 'gtre', 'fcca']
         #if name != 'boston' and name != 'ionosphere':
         #    discretizers = ['gtre', 'fcca']
@@ -77,9 +78,10 @@ if __name__ == '__main__':
                 elif d == 'total':
                     discretizer = TotalDiscretizer()
                 elif d == 'gtre':
-                    discretizer = GTRE()
+                    discretizer = GTRE(max_depth=cfg.target_depth, n_estimators=cfg.target_nestimators)
                 elif d == 'fcca':
-                    discretizer = FCCA(RandomForestClassifier(max_depth=cfg.rf_depth, n_estimators=cfg.rf_nestimators, random_state=cfg.seed), p1=cfg.p1, p2=cfg.p2, lambda0=cfg.lambda0, lambda1=cfg.lambda1, compress=True, Q=cfg.Q)
+                    #discretizer = FCCA(RandomForestClassifier(max_depth=cfg.rf_depth, n_estimators=cfg.rf_nestimators, random_state=cfg.seed), p1=cfg.p1, p2=cfg.p2, lambda0=cfg.lambda0, lambda1=cfg.lambda1, compress=True, Q=cfg.Q)
+                    discretizer = FCCA(GradientBoostingClassifier(max_depth=cfg.target_depth, n_estimators=cfg.target_nestimators, random_state=cfg.seed, learning_rate=0.1), p1=cfg.p1, p2=cfg.p2, lambda0=cfg.lambda0, lambda1=cfg.lambda1, compress=True, Q=cfg.Q)
                     #estimator = GridSearchCV(RandomForestClassifier(n_estimators=cfg.rf_nestimators, random_state=cfg.seed), param_grid={'max_depth':[3,4,6,8,10]}, cv=cfg.k)
                     #discretizer = FCCA(estimator, p1=cfg.p1, p2=cfg.p2, lambda0=cfg.lambda0, lambda1=cfg.lambda1, compress=True, Q=cfg.Q)
                 else:
@@ -93,6 +95,24 @@ if __name__ == '__main__':
                         print(f"{d} fold{i}: {np.unique(y_tr_discr,return_counts=True)[1]}, {np.unique(y_val_discr,return_counts=True)[1]}")
                         print(f"{d} fold {i}: Target accuracy train set: {accuracy_score(y_tr, discretizer.estimator.predict(x_tr))}", file=open(cfg.get_filename('logger'), mode='a'))
                         print(f"{d} fold {i}: Target accuracy validation set: {accuracy_score(y_val, discretizer.estimator.predict(x_val))}", file=open(cfg.get_filename('logger'), mode='a'))
+
+                        """target_models = [RandomForestClassifier(n_estimators=discretizer.estimator.n_estimators,max_depth=3),
+                                         RandomForestClassifier(n_estimators=discretizer.estimator.n_estimators,max_depth=4),
+                                         RandomForestClassifier(n_estimators=discretizer.estimator.n_estimators,max_depth=6),
+                                         RandomForestClassifier(n_estimators=discretizer.estimator.n_estimators,max_depth=8),
+                                         RandomForestClassifier(n_estimators=discretizer.estimator.n_estimators,max_depth=10),
+                                         GradientBoostingClassifier(n_estimators=30,max_depth=3,loss='deviance',learning_rate=0.1),
+                                         GradientBoostingClassifier(n_estimators=30,max_depth=4,loss='deviance',learning_rate=0.1),
+                                         GradientBoostingClassifier(n_estimators=30,max_depth=6,loss='deviance',learning_rate=0.1),
+                                         GradientBoostingClassifier(n_estimators=30,max_depth=8,loss='deviance',learning_rate=0.1),
+                                         GradientBoostingClassifier(n_estimators=30,max_depth=10,loss='deviance',learning_rate=0.1),
+                                         GradientBoostingClassifier(n_estimators=100,max_depth=1,loss='deviance',learning_rate=0.1)]
+                        for target in target_models:
+                            target.fit(x_tr, y_tr)
+                            print(f"{d} fold {i}: {target.__class__} target model with {target.n_estimators} estimators and max_depth {target.max_depth}",file=open(cfg.get_filename('logger'), mode='a'))
+                            print(f"{d} fold {i}: Target accuracy train set: {accuracy_score(y_tr, target.predict(x_tr))}", file=open(cfg.get_filename('logger'), mode='a'))
+                            print(f"{d} fold {i}: Target accuracy validation set: {accuracy_score(y_val, target.predict(x_val))}", file=open(cfg.get_filename('logger'), mode='a'))"""
+
                     print(f"{d} fold {i}: {x_tr_discr.shape[1]} thresholds", file=open(cfg.get_filename('logger'), mode='a'))
 
                 for m in models:

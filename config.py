@@ -13,13 +13,13 @@ class Config:
 
         self.logger = True
 
-        self.rf_depth = 6
-        self.rf_nestimators = 100
+        self.target_depth = 4
+        self.target_nestimators = 100
 
         self.dt_depth = 3
         self.regularization_factor = 1
         self.train_size = None
-        self.Q = 0.8
+        self.Q = 0.6
 
         self.p1 = 1
         self.p2 = 1

@@ -33,8 +33,11 @@ class CESolver():
     def build(self, x0, yCE):
         self.model.reset()
         for c in self.reset:
-            for j in c.keys():
-                self.model.remove(c[j])
+            if isinstance(c,dict):
+                for j in c.keys():
+                    self.model.remove(c[j])
+            else:
+                self.model.remove(c)
         self.reset = []
 
         self.model.update()

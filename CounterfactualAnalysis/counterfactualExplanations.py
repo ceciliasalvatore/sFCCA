@@ -1,10 +1,11 @@
 import time
 import numpy as np
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.svm import LinearSVC, SVC
 
 from CounterfactualAnalysis.RandomForestSolver import CESolver_RandomForest
 from CounterfactualAnalysis.SVCSolver import CESolver_SVC
+from CounterfactualAnalysis.GradientBoostingSolver import CESolver_GradientBoosting
 from config import cfg
 
 class CounterfactualExplanation():
@@ -16,6 +17,8 @@ class CounterfactualExplanation():
 
         if isinstance(self.estimator, RandomForestClassifier):
             self.solver = CESolver_RandomForest(self.estimator, lambda0, lambda1, lambda2, eps)
+        elif isinstance(self.estimator, GradientBoostingClassifier):
+            self.solver = CESolver_GradientBoosting(self.estimator, lambda0, lambda1, lambda2, eps)
         elif isinstance(self.estimator, LinearSVC) or isinstance(self.estimator, SVC):
             self.solver = CESolver_SVC(self.estimator, lambda0, lambda1, lambda2, eps)
         else:

@@ -10,6 +10,9 @@ from sklearn.model_selection import GridSearchCV, StratifiedKFold
 from scipy.spatial import distance_matrix
 from gosdt.model.threshold_guess import compute_thresholds
 
+from sklearn import tree
+from matplotlib import pyplot as plt
+
 from dataset import Dataset
 from CounterfactualAnalysis.counterfactualExplanations import CounterfactualExplanation
 
@@ -88,6 +91,17 @@ class FCCA(Discretizer):
 
     def fit(self, x, y, x_ts=None, y_ts=None):
         self.estimator.fit(x, y)
+
+        """i = np.random.choice(np.arange(len(x)), 1)[0]
+        print(i)
+        xx = x.iloc[i:i + 1]
+        sdf = list(self.estimator.staged_decision_function(xx))
+        pred = -1*np.log(len(y[y==0]))+1*np.log(len(y[y==1]))
+        #pred = self.estimator._raw_predict_init(xx)[0, 0]
+        #print(pred)
+        for t in range(self.estimator.n_estimators):
+            pred += self.estimator.learning_rate * self.estimator[t, 0].predict(xx)
+            print(np.abs(pred - sdf[t]))"""
 
         if isinstance(self.estimator, GridSearchCV):
             self.estimator = self.estimator.best_estimator_
@@ -194,9 +208,9 @@ class FCCA(Discretizer):
                             (np.max(self.estimator.predict_proba(x), axis=1) >= self.p0) &
                             (np.max(self.estimator.predict_proba(x), axis=1) <= self.p1))[0]
             if self.p1 < 1:
-                index2 = np.where((self.estimator.predict(x) == y) & (np.max(self.estimator.predict_proba(x), axis=1) >= self.p1))[0]
-                index2 = np.random.choice(index2, 0.1*len(index2))
-                index = np.concatenate((index, index2))
+                index2 = np.where((self.estimator.predict(x) == y) & (np.max(self.estimator.predict_proba(x), axis=1) > self.p1))[0]
+                index2 = np.random.choice(index2, int(0.1*len(index2)), replace=False)
+                index = np.concatenate((index,index2))
         except:
             warnings.warn(f"Disabling probability control in FCCA.getRelevant for estimator of class {self.estimator.__class__}")
             index = np.where((self.estimator.predict(x)==y))
@@ -250,7 +264,11 @@ class FCCA_KFold(FCCA):
             self.tao = self.chooseQ(x, y, split=folds.split(x, y))
 
 class GTRE(Discretizer):
+    def __init__(self, max_depth, n_estimators):
+        self.max_depth = max_depth
+        self.n_estimators = n_estimators
+
     def fit(self, x, y):
-        _,_,self.tao,_ = compute_thresholds(x.copy(), y.copy(), 100, 1)
+        _,_,self.tao,_ = compute_thresholds(x.copy(), y.copy(), self.n_estimators, self.max_depth)
         self.tao = pd.DataFrame(data={'Feature':[self.tao[i].split('<=')[0] for i in range(len(self.tao))],
                                       'Threshold':[float(self.tao[i].split('<=')[1]) for i in range(len(self.tao))]})

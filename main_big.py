@@ -45,9 +45,9 @@ if __name__ == '__main__':
             model.fit(x_tr, y_tr)
             print(model.cv_results_['mean_test_score'], file=open(cfg.get_filename('logger'), mode='a'))
             print(f"Best Random Forest {model.best_params_}", file=open(cfg.get_filename('logger'), mode='a'))
-            cfg.rf_depth = model.best_params_['max_depth']
+            cfg.target_depth = model.best_params_['max_depth']
 
-            discretizer = FCCA(estimator=RandomForestClassifier(n_estimators=cfg.rf_nestimators, max_depth=cfg.rf_depth, random_state=cfg.seed))
+            discretizer = FCCA(estimator=RandomForestClassifier(n_estimators=cfg.target_nestimators, max_depth=cfg.target_depth, random_state=cfg.seed))
             discretizer.estimator.fit(x_tr, y_tr)
             x0, y0 = discretizer.getRelevant(x_tr, y_tr)
 
