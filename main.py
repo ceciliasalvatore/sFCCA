@@ -1,14 +1,12 @@
 import warnings
 import numpy as np
-import copy
 from sklearn.model_selection import GridSearchCV, StratifiedKFold
 from sklearn.ensemble import RandomForestClassifier,GradientBoostingClassifier
+from sklearn.svm import LinearSVC
 from sklearn import tree
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score, confusion_matrix
 from gosdt.model.gosdt import GOSDT
-from matplotlib import pyplot as plt
 
 from dataset import Dataset
 from discretize import NoDiscretization, FCCA, TotalDiscretizer, GTRE
@@ -18,8 +16,6 @@ from config import cfg
 
 if __name__ == '__main__':
     datasets = ['boston', 'arrhythmia', 'ionosphere', 'magic', 'particle', 'vehicle']
-    #datasets = ['magic', 'particle', 'vehicle']
-
     for name in datasets:
         np.random.seed = cfg.seed
         cfg.set_name(name)
@@ -30,37 +26,28 @@ if __name__ == '__main__':
             if cfg.load_thresholds==False:
                 print(f"p, t", file=open(cfg.get_filename('counterfactuals_time'), mode='w'))
 
-        """model = GridSearchCV(RandomForestClassifier(n_estimators=100, random_state=cfg.seed), param_grid={'max_depth':[3,4,6,8,10]}, cv=cfg.k)
-        model.fit(dataset.get_x(), dataset.get_y())
-        cfg.rf_depth = model.best_params_['max_depth']
+        if cfg.target_cross_validation:
+            if cfg.target_model == GradientBoostingClassifier:
+                model = GridSearchCV(GradientBoostingClassifier(n_estimators=cfg.target_nestimators,learning_rate=0.1,random_state=cfg.seed),param_grid={'max_depth':[1,2,3,4]},cv=cfg.k)
+                model.fit(dataset.get_x(),dataset.get_y())
+                cfg.target_depth = model.best_params_['max_depth']
 
-        if name == 'boston':
-            cfg.rf_depth = 3
-        if name == 'arrhythmia':
-            cfg.rf_depth = 6
-        if cfg.rf_depth > 6:
-            cfg.rf_nestimators = 30
-            #cfg.dt_depth = 4
-        if cfg.rf_depth > 4:
-            cfg.regularization_factor = 1
-        else:
-            cfg.regularization_factor = 10
+            if cfg.target_model == RandomForestClassifier:
+                model = GridSearchCV(RandomForestClassifier(n_estimators=cfg.target_nestimators, random_state=cfg.seed), param_grid=[{'n_estimators': [100], 'max_depth': [3,4]}, {'n_estimators': [50], 'max_depth': [6]}], cv=cfg.k)
+                model.fit(dataset.get_x(), dataset.get_y())
+                cfg.target_depth = model.best_params_['max_depth']
+                cfg.target_nestimators = model.best_params_['n_estimators']
+            if cfg.target_model == LinearSVC:
+                model = GridSearchCV(LinearSVC(), param_grid={'C': [1.e-4, 1.e-3, 1.e-2, 1.e-1, 1]}, cv=cfg.k)
+                model.fit(dataset.get_x(), dataset.get_y())
+                cfg.target_C = model.best_params_['C']
+            if cfg.logger:
+                print(f"cv scores: {model.cv_results_['mean_test_score']}",
+                      file=open(cfg.get_filename('logger'), mode='a'))
+                print(f"Best target model: {cfg.target_depth}", file=open(cfg.get_filename('logger'), mode='a'))
 
-        if cfg.logger:
-            print(f"cv scores: {model.cv_results_['mean_test_score']}", file=open(cfg.get_filename('logger'), mode='a'))
-            print(f"Best target model: {cfg.rf_depth}", file=open(cfg.get_filename('logger'), mode='a'))"""
-
-        discretizers = ['continuous', 'gtre', 'fcca']
-        #if name != 'boston' and name != 'ionosphere':
-        #    discretizers = ['gtre', 'fcca']
-           # {'total': TotalDiscretizer(), 'gtre': GTRE(), 'fcca': FCCA(RandomForestClassifier(max_depth=cfg.rf_depth, n_estimators=cfg.rf_nestimators, random_state=cfg.seed), p1=cfg.p1, p2=cfg.p2, lambda0=cfg.lambda0, lambda1=cfg.lambda1, compress=True, Q=None)}
-        #if name != 'boston' and name != 'ionosphere':
-        #    discretizers = {'gtre': GTRE(), 'fcca': FCCA(RandomForestClassifier(max_depth=cfg.rf_depth, n_estimators=cfg.rf_nestimators, random_state=cfg.seed), p1=cfg.p1, p2=cfg.p2, lambda0=cfg.lambda0, lambda1=cfg.lambda1, compress=True, Q=None)}
-
-        # if name == 'arrhythmia' or name == 'magic':
-        #    discretizers = {'gtre':GTRE(), 'fcca':FCCA_KFold(GridSearchCV(RandomForestClassifier(n_estimators=50, random_state=cfg.seed), {'max_depth':[3,4,6,8,10]}), k=cfg.k, p1=0.7, p2=0.2, lambda0=0.1, lambda1=1, compress=True, Q=None)}
+        discretizers = ['continuous', 'gtre', 'fcca_0', 'fcca_0.7', 'fcca_0.8', 'fcca_0.9', 'fcca_0.95']
         models = ['cart', 'gosdt']
-        #models = {'cart': DecisionTreeClassifier(max_depth=cfg.dt_depth), 'gosdt': GOSDT({'regularization': 1 / ((cfg.k - 1) * dataset.get_x().shape[0] / (cfg.k)), 'depth_budget': cfg.dt_depth+1, 'time_limit': cfg.gosdt_timelimit, 'verbose':True})}
 
         performance = {}
 
@@ -78,40 +65,34 @@ if __name__ == '__main__':
                 elif d == 'total':
                     discretizer = TotalDiscretizer()
                 elif d == 'gtre':
-                    discretizer = GTRE(max_depth=cfg.target_depth, n_estimators=cfg.target_nestimators)
-                elif d == 'fcca':
-                    #discretizer = FCCA(RandomForestClassifier(max_depth=cfg.rf_depth, n_estimators=cfg.rf_nestimators, random_state=cfg.seed), p1=cfg.p1, p2=cfg.p2, lambda0=cfg.lambda0, lambda1=cfg.lambda1, compress=True, Q=cfg.Q)
-                    discretizer = FCCA(GradientBoostingClassifier(max_depth=cfg.target_depth, n_estimators=cfg.target_nestimators, random_state=cfg.seed, learning_rate=0.1), p1=cfg.p1, p2=cfg.p2, lambda0=cfg.lambda0, lambda1=cfg.lambda1, compress=True, Q=cfg.Q)
-                    #estimator = GridSearchCV(RandomForestClassifier(n_estimators=cfg.rf_nestimators, random_state=cfg.seed), param_grid={'max_depth':[3,4,6,8,10]}, cv=cfg.k)
-                    #discretizer = FCCA(estimator, p1=cfg.p1, p2=cfg.p2, lambda0=cfg.lambda0, lambda1=cfg.lambda1, compress=True, Q=cfg.Q)
+                    if cfg.target_model == GradientBoostingClassifier:
+                        discretizer = GTRE(max_depth=cfg.target_depth, n_estimators=cfg.target_nestimators)
+                    else:
+                        discretizer = GTRE(max_depth=1, n_estimators=100)
+                elif 'fcca' in d:
+                    try:
+                        Q = float(d.split('_')[1])
+                    except:
+                        Q = 0.0
+                    if cfg.target_model == GradientBoostingClassifier:
+                        discretizer = FCCA(GradientBoostingClassifier(max_depth=cfg.target_depth, n_estimators=cfg.target_nestimators, random_state=cfg.seed, learning_rate=0.1), p1=cfg.p1, lambda0=cfg.lambda0, lambda1=cfg.lambda1, compress=True, Q=Q)
+                    elif cfg.target_model == RandomForestClassifier:
+                        discretizer = FCCA(RandomForestClassifier(max_depth=cfg.target_depth, n_estimators=cfg.target_nestimators, random_state=cfg.seed), p1=cfg.p1, lambda0=cfg.lambda0, lambda1=cfg.lambda1, compress=True, Q=Q)
+                    elif cfg.target_model == LinearSVC:
+                        discretizer = FCCA(LinearSVC(C=cfg.target_C), p1=cfg.p1, lambda0=cfg.lambda0, lambda1=cfg.lambda1, lambda2=cfg.lambda2, compress=True, Q=Q)
+                    else:
+                        raise NotImplementedError(f'Unknown discretizer model {cfg.target_model}')
                 else:
                     raise NotImplementedError(f'Unknown discretization strategy {d}')
                 x_tr_discr, y_tr_discr = discretizer.fit_transform(x_tr, y_tr)
                 x_val_discr, y_val_discr = discretizer.transform(x_val, y_val)
 
                 if cfg.logger:
-                    if d == 'fcca':
-                        print(f"{d} fold {i}: {discretizer.estimator.__class__} target model with {discretizer.estimator.n_estimators} estimators and max_depth {discretizer.estimator.max_depth}", file=open(cfg.get_filename('logger'), mode='a'))
+                    if 'fcca' in d:
+                        print(f"{d} fold {i}: {discretizer.estimator.__class__} target model", file=open(cfg.get_filename('logger'), mode='a'))
                         print(f"{d} fold{i}: {np.unique(y_tr_discr,return_counts=True)[1]}, {np.unique(y_val_discr,return_counts=True)[1]}")
                         print(f"{d} fold {i}: Target accuracy train set: {accuracy_score(y_tr, discretizer.estimator.predict(x_tr))}", file=open(cfg.get_filename('logger'), mode='a'))
                         print(f"{d} fold {i}: Target accuracy validation set: {accuracy_score(y_val, discretizer.estimator.predict(x_val))}", file=open(cfg.get_filename('logger'), mode='a'))
-
-                        """target_models = [RandomForestClassifier(n_estimators=discretizer.estimator.n_estimators,max_depth=3),
-                                         RandomForestClassifier(n_estimators=discretizer.estimator.n_estimators,max_depth=4),
-                                         RandomForestClassifier(n_estimators=discretizer.estimator.n_estimators,max_depth=6),
-                                         RandomForestClassifier(n_estimators=discretizer.estimator.n_estimators,max_depth=8),
-                                         RandomForestClassifier(n_estimators=discretizer.estimator.n_estimators,max_depth=10),
-                                         GradientBoostingClassifier(n_estimators=30,max_depth=3,loss='deviance',learning_rate=0.1),
-                                         GradientBoostingClassifier(n_estimators=30,max_depth=4,loss='deviance',learning_rate=0.1),
-                                         GradientBoostingClassifier(n_estimators=30,max_depth=6,loss='deviance',learning_rate=0.1),
-                                         GradientBoostingClassifier(n_estimators=30,max_depth=8,loss='deviance',learning_rate=0.1),
-                                         GradientBoostingClassifier(n_estimators=30,max_depth=10,loss='deviance',learning_rate=0.1),
-                                         GradientBoostingClassifier(n_estimators=100,max_depth=1,loss='deviance',learning_rate=0.1)]
-                        for target in target_models:
-                            target.fit(x_tr, y_tr)
-                            print(f"{d} fold {i}: {target.__class__} target model with {target.n_estimators} estimators and max_depth {target.max_depth}",file=open(cfg.get_filename('logger'), mode='a'))
-                            print(f"{d} fold {i}: Target accuracy train set: {accuracy_score(y_tr, target.predict(x_tr))}", file=open(cfg.get_filename('logger'), mode='a'))
-                            print(f"{d} fold {i}: Target accuracy validation set: {accuracy_score(y_val, target.predict(x_val))}", file=open(cfg.get_filename('logger'), mode='a'))"""
 
                     print(f"{d} fold {i}: {x_tr_discr.shape[1]} thresholds", file=open(cfg.get_filename('logger'), mode='a'))
 
@@ -153,17 +134,9 @@ if __name__ == '__main__':
                     performance[(d,m)].model[i] = model
                     performance[(d, m)].accuracy[i] = accuracy_score(y_val_discr, model.predict(x_val_discr))
 
-                    performance[(d,m)].compression[i] = {}
-                    performance[(d,m)].inconsistency[i] = {}
+                    performance[(d,m)].compression[i] = discretizer.compression_rate(x_val, y_val)
+                    performance[(d,m)].inconsistency[i]  = discretizer.inconsistency_rate(x_val, y_val)
 
-                    for q in cfg.q_list:
-                        if d == 'fcca':
-                            tao_q = discretizer.selectThresholds(q)
-                            performance[(d, m)].compression[i][q] = discretizer.compression_rate(x_val, y_val, tao_q)
-                            performance[(d, m)].inconsistency[i][q] = discretizer.inconsistency_rate(x_val, y_val, tao_q)
-                        else:
-                            performance[(d, m)].compression[i][q] = discretizer.compression_rate(x_val, y_val)
-                            performance[(d, m)].inconsistency[i][q] = discretizer.inconsistency_rate(x_val, y_val)
                     if isinstance(model, GOSDT):
                         features = model.tree.features()
                     else:
@@ -173,6 +146,10 @@ if __name__ == '__main__':
                     performance[(d, m)].n_thresholds[i] = x_tr_discr.shape[1]
 
         plot(performance, 'accuracy')
+        plot(performance, 'compression')
+        plot(performance, 'inconsistency')
+        plot(performance, 'n_features')
+        plot(performance, 'thresholds')
 
         try:
             performance_test = {}
@@ -183,6 +160,6 @@ if __name__ == '__main__':
                 for i in performance[(d,m)].model.keys():
                     x_ts_discr, y_ts_discr = performance[(d,m)].discretizer[i].transform(x_ts, y_ts)
                     performance_test[(d,m)].accuracy[i] = accuracy_score(y_ts_discr, performance[(d,m)].model[i].predict(x_ts_discr))
-            plot(performance_test, 'accuracy_test')
+            plot(performance_test, 'accuracy', 'accuracy_test')
         except:
             pass

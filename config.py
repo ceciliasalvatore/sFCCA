@@ -1,9 +1,10 @@
 import os.path
+from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
+from sklearn.svm import LinearSVC
 
 class Config:
     def __init__(self):
         self.data_base_dir = "datasets"  # Directory for datasets
-        self.results_base_dir = "results"  # Directory for results
 
         self.timelimit = 1*60
 
@@ -13,20 +14,31 @@ class Config:
 
         self.logger = True
 
-        self.target_depth = 4
+        self.target_model = GradientBoostingClassifier
+        #self.target_model = RandomForestClassifier
+        #self.target_model = LinearSVC
+        self.target_cross_validation = False
+        if self.target_model == RandomForestClassifier or self.target_model == LinearSVC:
+            self.target_cross_validation = True
+
+        self.target_depth = 1
         self.target_nestimators = 100
+        if self.target_model == RandomForestClassifier:
+            self.target_nestimators = 50
+        self.target_C = 1
 
         self.dt_depth = 3
-        self.regularization_factor = 1
+        self.regularization_factor = 10
         self.train_size = None
-        self.Q = 0.6
 
         self.p1 = 1
         self.p2 = 1
+
         self.lambda0 = 0.1
         self.lambda1 = 1
+        self.lambda2 = 0.0
 
-        self.q_list = [0, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.97, 0.98, 0.99]
+        self.results_base_dir = "results"  # Directory for results
 
         self.fold = ""
         self.load_thresholds = True

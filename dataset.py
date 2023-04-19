@@ -13,13 +13,6 @@ class Dataset:
         self.feature_columns = self.data.columns[:-1]
         self.classes_ = self.data[self.label_column].unique()
 
-        """if os.path.exists(cfg.get_filename('train')) and os.path.exists(cfg.get_filename('test')):
-            self.data_tr = pd.read_csv(cfg.get_filename('train'))
-            self.data_ts = pd.read_csv(cfg.get_filename('test'))
-        else:"""
-        #self.data_ts = df.sample(frac=test_size, random_state=cfg.seed)
-        #self.data_tr = df.drop(index=self.data_ts.index)
-
         scaler = MinMaxScaler()
         self.data[self.feature_columns] = scaler.fit_transform(self.data[self.feature_columns])
 

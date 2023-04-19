@@ -1,7 +1,5 @@
 import numpy as np
-from sklearn import tree
-from matplotlib import pyplot as plt
-from gurobipy import GRB, quicksum
+from gurobipy import quicksum
 
 from CounterfactualAnalysis.TreeEnsembleSolver import CESolver_TreeEnsemble
 

@@ -39,8 +39,10 @@ class CounterfactualExplanation():
             xCE.iloc[i] = xCE_i
             yCE.iloc[i] = yCE_i
             if cfg.logger:
-                print(f"{np.max(self.estimator.predict_proba(x0.iloc[i:i+1]))}, {time.time()-t_i}", file=open(cfg.get_filename('counterfactuals_time'),mode='a'))
-
+                try:
+                    print(f"{np.max(self.estimator.predict_proba(x0.iloc[i:i+1]))}, {time.time()-t_i}", file=open(cfg.get_filename('counterfactuals_time'),mode='a'))
+                except:
+                    print(f"{np.max(self.estimator._predict_proba_lr(x0.iloc[i:i+1]))}, {time.time()-t_i}", file=open(cfg.get_filename('counterfactuals_time'),mode='a'))
         if cfg.logger:
             print(f"{len(x0)} Counterfactual Explanations computed in {time.time()-t0} s", file=open(cfg.get_filename('logger'),mode='a'))
 

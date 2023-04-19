@@ -10,7 +10,7 @@ class CESolver():
         self.estimator = estimator
         try:
             self.F = self.estimator.n_features_in_
-            self.features = eps.index#self.estimator.feature_names_in_
+            self.features = eps.index
             self.K = self.estimator.classes_
         except:
             raise Exception('Unfitted estimator')
@@ -31,6 +31,7 @@ class CESolver():
         self.x_l1 = self.model.addVars(self.F, vtype=GRB.CONTINUOUS, lb=0, ub=1)
 
     def build(self, x0, yCE):
+        self.x0 = x0
         self.model.reset()
         for c in self.reset:
             if isinstance(c,dict):
@@ -43,7 +44,7 @@ class CESolver():
         self.model.update()
 
         self.l0_constraint_a = self.model.addConstrs((x0[j]-self.xCE[j] >= -self.M0*self.x_l0[j] for j in range(self.F)))
-        self.l0_constraint_b = self.model.addConstrs((x0[j]-self.xCE[j] <= self.M0*self.x_l0[j] for j in range(self.F)))
+        self.l0_constraint_b = self.model.addConstrs((x0[j]-self.xCE[j] <= +self.M0*self.x_l0[j] for j in range(self.F)))
 
         self.l1_constraint_a = self.model.addConstrs((self.x_l1[j] >= (x0[j]-self.xCE[j]) for j in range(self.F)))
         self.l1_constraint_b = self.model.addConstrs((self.x_l1[j] >= -(x0[j]-self.xCE[j]) for j in range(self.F)))

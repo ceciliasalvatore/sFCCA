@@ -1,17 +1,10 @@
 import os.path
-import warnings
 import pandas as pd
 import numpy as np
-import copy
-from sklearn.cluster import KMeans
 from sklearn.metrics import accuracy_score
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.model_selection import GridSearchCV, StratifiedKFold
-from scipy.spatial import distance_matrix
 from gosdt.model.threshold_guess import compute_thresholds
-
-from sklearn import tree
-from matplotlib import pyplot as plt
 
 from dataset import Dataset
 from CounterfactualAnalysis.counterfactualExplanations import CounterfactualExplanation
@@ -77,12 +70,11 @@ class TotalDiscretizer(Discretizer):
         return tao_c
 
 class FCCA(Discretizer):
-    def __init__(self, estimator, p0=0.5, p1=1, p2=1, lambda0=0.1, lambda1=1, lambda2=0.0, compress=False, Q=None):
+    def __init__(self, estimator, p0=0.5, p1=1, lambda0=0.1, lambda1=1, lambda2=0.0, compress=False, Q=None):
         super().__init__()
         self.estimator = estimator
         self.p0 = p0
         self.p1 = p1
-        self.p2 = p2
         self.lambda0 = lambda0
         self.lambda1 = lambda1
         self.lambda2 = lambda2
@@ -91,17 +83,6 @@ class FCCA(Discretizer):
 
     def fit(self, x, y, x_ts=None, y_ts=None):
         self.estimator.fit(x, y)
-
-        """i = np.random.choice(np.arange(len(x)), 1)[0]
-        print(i)
-        xx = x.iloc[i:i + 1]
-        sdf = list(self.estimator.staged_decision_function(xx))
-        pred = -1*np.log(len(y[y==0]))+1*np.log(len(y[y==1]))
-        #pred = self.estimator._raw_predict_init(xx)[0, 0]
-        #print(pred)
-        for t in range(self.estimator.n_estimators):
-            pred += self.estimator.learning_rate * self.estimator[t, 0].predict(xx)
-            print(np.abs(pred - sdf[t]))"""
 
         if isinstance(self.estimator, GridSearchCV):
             self.estimator = self.estimator.best_estimator_
@@ -207,61 +188,14 @@ class FCCA(Discretizer):
             index = np.where((self.estimator.predict(x) == y) &
                             (np.max(self.estimator.predict_proba(x), axis=1) >= self.p0) &
                             (np.max(self.estimator.predict_proba(x), axis=1) <= self.p1))[0]
-            if self.p1 < 1:
-                index2 = np.where((self.estimator.predict(x) == y) & (np.max(self.estimator.predict_proba(x), axis=1) > self.p1))[0]
-                index2 = np.random.choice(index2, int(0.1*len(index2)), replace=False)
-                index = np.concatenate((index,index2))
         except:
-            warnings.warn(f"Disabling probability control in FCCA.getRelevant for estimator of class {self.estimator.__class__}")
-            index = np.where((self.estimator.predict(x)==y))
+            #warnings.warn(f"Disabling probability control in FCCA.getRelevant for estimator of class {self.estimator.__class__}")
+            index = np.where((self.estimator.predict(x) == y) &
+                            (np.max(self.estimator._predict_proba_lr(x), axis=1) >= self.p0) &
+                            (np.max(self.estimator._predict_proba_lr(x), axis=1) <= self.p1))[0]
         x_relevant = x.iloc[index]
         y_relevant = y.iloc[index]
-        if self.p2 < 1:
-            x_k = {}
-            y_k = {}
-            for k in y_relevant.unique():
-                x_k[k] = x_relevant[y_relevant==k]
-                y_k[k] = y_relevant[y_relevant==k]
-                centers = KMeans(n_clusters=int(len(x_k[k]) * self.p2), n_init=100).fit(x_k[k]).cluster_centers_
-                closest = np.argsort(distance_matrix(centers, x_k[k]))[:, 0]
-                x_k[k] = x_k[k].iloc[closest]
-                y_k[k] = y_k[k].iloc[closest]
-            x_relevant = pd.concat(tuple(x_k[k] for k in x_k.keys()))
-            y_relevant = pd.concat(tuple(y_k[k] for k in y_k.keys()))
         return x_relevant, y_relevant
-
-class FCCA_KFold(FCCA):
-    def __init__(self, estimator, k, p0=0.5, p1=1, p2=1, lambda0=0.1, lambda1=1, lambda2=0.0, compress=True, Q='KFold'):
-        super().__init__(estimator, p0, p1, p2, lambda0, lambda1, lambda2, compress, Q=Q)
-        self.k = k
-
-    def fit(self, x, y):
-        self.estimator.fit(x, y)
-        print(self.estimator.best_estimator_)
-
-        folds = StratifiedKFold(self.k)
-        compressors = {}
-        for i, (train_idx, val_idx) in enumerate(folds.split(x, y)):
-            x_tr = x.iloc[train_idx]
-            y_tr = y.iloc[train_idx]
-            x_val = x.iloc[val_idx]
-            y_val = y.iloc[val_idx]
-            if isinstance(self.estimator, GridSearchCV):
-                estimator = copy.deepcopy(self.estimator.best_estimator_)
-            else:
-                estimator = copy.deepcopy(self.estimator)
-            compressors[i] = FCCA(estimator, p1=self.p1, p2=self.p2, lambda0=self.lambda0, lambda1=self.lambda1, compress=False, Q=None)
-            compressors[i].fit(x_tr, y_tr, x_val, y_val)
-
-        self.tao = compressors[0].tao
-        for i in range(1,self.k):
-            self.tao = pd.concat((self.tao, compressors[i].tao))
-
-        if self.compress:
-            self.tao = self.compressThresholds(self.tao)
-
-        if self.Q is not None:
-            self.tao = self.chooseQ(x, y, split=folds.split(x, y))
 
 class GTRE(Discretizer):
     def __init__(self, max_depth, n_estimators):
