@@ -26,25 +26,26 @@ if __name__ == '__main__':
             if cfg.load_thresholds==False:
                 print(f"p, t", file=open(cfg.get_filename('counterfactuals_time'), mode='w'))
 
-        if cfg.target_cross_validation:
-            if cfg.target_model == GradientBoostingClassifier:
-                model = GridSearchCV(GradientBoostingClassifier(n_estimators=cfg.target_nestimators,learning_rate=0.1,random_state=cfg.seed),param_grid={'max_depth':[1,2,3,4]},cv=cfg.k)
-                model.fit(dataset.get_x(),dataset.get_y())
+        if cfg.target_model == GradientBoostingClassifier:
+            model = GridSearchCV(GradientBoostingClassifier(n_estimators=cfg.target_nestimators,learning_rate=0.1,random_state=cfg.seed),param_grid={'max_depth':[1,2,3]},cv=cfg.k)
+            model.fit(dataset.get_x(),dataset.get_y())
+            if cfg.target_cross_validation:
                 cfg.target_depth = model.best_params_['max_depth']
 
-            if cfg.target_model == RandomForestClassifier:
-                model = GridSearchCV(RandomForestClassifier(n_estimators=cfg.target_nestimators, random_state=cfg.seed), param_grid=[{'n_estimators': [100], 'max_depth': [3,4]}, {'n_estimators': [50], 'max_depth': [6]}], cv=cfg.k)
-                model.fit(dataset.get_x(), dataset.get_y())
+        if cfg.target_model == RandomForestClassifier:
+            model = GridSearchCV(RandomForestClassifier(n_estimators=cfg.target_nestimators, random_state=cfg.seed), param_grid=[{'n_estimators': [100], 'max_depth': [3,4]}, {'n_estimators': [50], 'max_depth': [6]}], cv=cfg.k)
+            model.fit(dataset.get_x(), dataset.get_y())
+            if cfg.target_cross_validation:
                 cfg.target_depth = model.best_params_['max_depth']
                 cfg.target_nestimators = model.best_params_['n_estimators']
-            if cfg.target_model == LinearSVC:
-                model = GridSearchCV(LinearSVC(), param_grid={'C': [1.e-4, 1.e-3, 1.e-2, 1.e-1, 1]}, cv=cfg.k)
-                model.fit(dataset.get_x(), dataset.get_y())
+        if cfg.target_model == LinearSVC:
+            model = GridSearchCV(LinearSVC(), param_grid={'C': [1.e-4, 1.e-3, 1.e-2, 1.e-1, 1]}, cv=cfg.k)
+            model.fit(dataset.get_x(), dataset.get_y())
+            if cfg.target_cross_validation:
                 cfg.target_C = model.best_params_['C']
-            if cfg.logger:
-                print(f"cv scores: {model.cv_results_['mean_test_score']}",
-                      file=open(cfg.get_filename('logger'), mode='a'))
-                print(f"Best target model: {cfg.target_depth}", file=open(cfg.get_filename('logger'), mode='a'))
+        if cfg.logger:
+            print(f"cv scores: {model.cv_results_['mean_test_score']}", file=open(cfg.get_filename('logger'), mode='a'))
+            print(f"Target model: {cfg.target_depth}", file=open(cfg.get_filename('logger'), mode='a'))
 
         discretizers = ['continuous', 'gtre', 'fcca_0', 'fcca_0.7', 'fcca_0.8', 'fcca_0.9', 'fcca_0.95']
         models = ['cart', 'gosdt']
@@ -135,7 +136,7 @@ if __name__ == '__main__':
                     performance[(d, m)].accuracy[i] = accuracy_score(y_val_discr, model.predict(x_val_discr))
 
                     performance[(d,m)].compression[i] = discretizer.compression_rate(x_val, y_val)
-                    performance[(d,m)].inconsistency[i]  = discretizer.inconsistency_rate(x_val, y_val)
+                    performance[(d,m)].inconsistency[i] = discretizer.inconsistency_rate(x_val, y_val)
 
                     if isinstance(model, GOSDT):
                         features = model.tree.features()

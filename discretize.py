@@ -1,4 +1,6 @@
 import os.path
+import time
+
 import pandas as pd
 import numpy as np
 from sklearn.metrics import accuracy_score
@@ -70,7 +72,7 @@ class TotalDiscretizer(Discretizer):
         return tao_c
 
 class FCCA(Discretizer):
-    def __init__(self, estimator, p0=0.5, p1=1, lambda0=0.1, lambda1=1, lambda2=0.0, compress=False, Q=None):
+    def __init__(self, estimator, p0=0.5, p1=1, lambda0=0.1, lambda1=1, lambda2=0.0, compress=True, Q=None):
         super().__init__()
         self.estimator = estimator
         self.p0 = p0
@@ -82,6 +84,7 @@ class FCCA(Discretizer):
         self.Q = Q
 
     def fit(self, x, y, x_ts=None, y_ts=None):
+        t0 = time.time()
         self.estimator.fit(x, y)
 
         if isinstance(self.estimator, GridSearchCV):
@@ -106,6 +109,8 @@ class FCCA(Discretizer):
 
         if self.Q is not None:
             self.tao = self.chooseQ(x, y)
+
+        print(f'Time needed for fitting the FCCA discretizer: {time.time()-t0} seconds', file=open(cfg.get_filename('logger'),mode='a'))
 
     def chooseQ(self, x, y, estimator=DecisionTreeClassifier(max_depth=4), split=None, tradeoff=0.8):
         levels = [0, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.98, 0.99]
@@ -203,6 +208,8 @@ class GTRE(Discretizer):
         self.n_estimators = n_estimators
 
     def fit(self, x, y):
+        t0 = time.time()
         _,_,self.tao,_ = compute_thresholds(x.copy(), y.copy(), self.n_estimators, self.max_depth)
         self.tao = pd.DataFrame(data={'Feature':[self.tao[i].split('<=')[0] for i in range(len(self.tao))],
                                       'Threshold':[float(self.tao[i].split('<=')[1]) for i in range(len(self.tao))]})
+        print(f'Time needed for fitting the GTRE discretizer: {time.time()-t0} seconds', file=open(cfg.get_filename('logger'),mode='a'))

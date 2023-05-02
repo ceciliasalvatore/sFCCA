@@ -26,6 +26,7 @@ def plot(performance, type_, title=None):
             else:
                 y = np.mean(list(performance[keys[0]].__getattribute__(type_).values()))
                 plt.plot([0, 1], [y, y], color=color_map[t], label=t, linewidth='3')
+        plt.xlabel('Q')
         plt.legend()
         plt.title(f"{cfg.name} - {title}")
         plt.savefig(cfg.get_filename(title, 'png'))
@@ -43,6 +44,7 @@ def plot(performance, type_, title=None):
                     y = np.mean(list(performance[keys[0]].__getattribute__(type_).values()))
                     plt.plot([0, 1], [y, y], color=color_map[t], label=t.split('_')[0], linewidth='3')
         plt.legend()
+        plt.xlabel('Q')
         plt.title(f"{cfg.name} - {title}")
         plt.savefig(cfg.get_filename(title, 'png'))
         plt.close(fig)
@@ -63,7 +65,7 @@ def plot(performance, type_, title=None):
                 ThresholdsFolds.update(Thresholds)
             ThresholdsFolds = ThresholdsFolds / np.max(ThresholdsFolds.to_numpy())
             ThresholdsFolds[ThresholdsFolds>0]=1
-            sns.heatmap(ThresholdsFolds, cmap="YlOrBr")
+            sns.heatmap(ThresholdsFolds, cmap="YlOrBr", cbar=False)
             plt.ylabel('Features')
             plt.xlabel('Thresholds')
             if 'fcca' in i:
