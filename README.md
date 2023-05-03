@@ -13,7 +13,7 @@ An active Gurobi Licence is needed to run the code.
 The implementation of the FCCA procedure can be found in the file *discretize.py* that contains the Python class *FCCA* which takes the following parameters:
 * **estimator**: an unfitted binary classifier from the <a href='https://scikit-learn.org/stable/'>sklearn</a> package. It can be one of the following: RandomForestClassifier, GradientBoosting, LinearSVC, SVC(kernel='linear'). It is also possible to take in input GridSearchCV to choose in cross validation the parameters of the estimator;
 * **p0**, **p1**: lower and upper bound for the classification probability of points for which computing the Counterfactual Explanation; 
-* **lambda0**, **lambda1*, **lambda2**: hyperparameters for the Counterfactual Explanation problem that represents respectively the weights for the l0-, l1- and l2- norm;
+* **lambda0**, **lambda1**, **lambda2**: hyperparameters for the Counterfactual Explanation problem that represents respectively the weights for the l0-, l1- and l2- norm;
 * **compress**: boolean that is set to True to merge thresholds whose absolute difference is smaller than 0.01;
 * **Q**: value of Q for the FCCA procedure;
 * **timelimit**: time limit in seconds for solving the Counterfactual Explanations problem.
