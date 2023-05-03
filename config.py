@@ -25,7 +25,7 @@ class Config:
             self.target_nestimators = 50
         self.target_C = 1
 
-        self.dt_depth = 3
+        self.dt_depth = 4
         self.regularization_factor = 10
         self.train_size = None
 
@@ -36,7 +36,7 @@ class Config:
         self.lambda1 = 1
         self.lambda2 = 0.0
 
-        self.results_base_dir = "results_others"  # Directory for results
+        self.results_base_dir = "results_4"  # Directory for results
 
         self.fold = ""
 

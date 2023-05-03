@@ -21,10 +21,6 @@ if __name__ == '__main__':
         cfg.set_name(name)
         dataset = Dataset(cfg.train_size)
 
-        if cfg.logger:
-            print(f"---- {name}-{cfg.seed} ----", file=open(cfg.get_filename('logger'), mode='w'))
-            print(f"p, t", file=open(cfg.get_filename('counterfactuals_time'), mode='w'))
-
         model = GridSearchCV(GradientBoostingClassifier(n_estimators=100, random_state=cfg.seed, learning_rate=0.1), param_grid={'max_depth': [1,2,3,4]}, cv=cfg.k)
         model.fit(dataset.get_x(), dataset.get_y())
         print("Gradient Boosting")

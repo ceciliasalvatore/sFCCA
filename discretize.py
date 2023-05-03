@@ -199,3 +199,4 @@ class GTRE(Discretizer):
         _,_,self.tao,_ = compute_thresholds(x.copy(), y.copy(), self.n_estimators, self.max_depth)
         self.tao = pd.DataFrame(data={'Feature':[self.tao[i].split('<=')[0] for i in range(len(self.tao))],
                                       'Threshold':[float(self.tao[i].split('<=')[1]) for i in range(len(self.tao))]})
+        print(f'Time needed for fitting the GTRE discretizer: {time.time()-t0} seconds')

@@ -23,7 +23,6 @@ if __name__ == '__main__':
 
         if cfg.logger:
             print(f"---- {name}-{cfg.seed} ----", file=open(cfg.get_filename('logger'), mode='w'))
-            print(f"p, t", file=open(cfg.get_filename('counterfactuals_time'), mode='w'))
 
         if cfg.target_model == GradientBoostingClassifier:
             model = GridSearchCV(GradientBoostingClassifier(n_estimators=cfg.target_nestimators,learning_rate=0.1,random_state=cfg.seed),param_grid={'max_depth':[1,2,3]},cv=cfg.k)
@@ -103,7 +102,7 @@ if __name__ == '__main__':
                     if m == 'cart':
                         model = DecisionTreeClassifier(max_depth=cfg.dt_depth)
                     elif m == 'gosdt':
-                        model = GOSDT({'regularization': cfg.regularization_factor/len(x_tr_discr), 'depth_budget': cfg.dt_depth+1, 'time_limit': cfg.gosdt_timelimit, 'verbose':True})
+                        model = GOSDT({'regularization': cfg.regularization_factor/len(x_tr_discr), 'depth_budget': cfg.dt_depth+1, 'time_limit': cfg.gosdt_timelimit})
                     else:
                         raise NotImplementedError(f'Unknown model {m}')
 
