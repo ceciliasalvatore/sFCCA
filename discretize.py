@@ -1,4 +1,3 @@
-import os.path
 import time
 
 import pandas as pd
@@ -10,8 +9,6 @@ from gosdt.model.threshold_guess import compute_thresholds
 
 from dataset import Dataset
 from CounterfactualAnalysis.counterfactualExplanations import CounterfactualExplanation
-
-from config import cfg
 
 class Discretizer:
     def fit(self, x, y):
@@ -72,7 +69,7 @@ class TotalDiscretizer(Discretizer):
         return tao_c
 
 class FCCA(Discretizer):
-    def __init__(self, estimator, p0=0.5, p1=1, lambda0=0.1, lambda1=1, lambda2=0.0, compress=True, Q=None):
+    def __init__(self, estimator, p0=0.5, p1=1, lambda0=0.1, lambda1=1, lambda2=0.0, compress=True, Q=None, timelimit=1*60):
         super().__init__()
         self.estimator = estimator
         self.p0 = p0
@@ -82,41 +79,32 @@ class FCCA(Discretizer):
         self.lambda2 = lambda2
         self.compress = compress
         self.Q = Q
+        self.timelimit = timelimit
 
-    def fit(self, x, y, x_ts=None, y_ts=None):
+    def fit(self, x, y):
         t0 = time.time()
         self.estimator.fit(x, y)
 
         if isinstance(self.estimator, GridSearchCV):
             self.estimator = self.estimator.best_estimator_
 
-        if cfg.load_thresholds and os.path.exists(cfg.get_filename_fold('thresholds')):
-            self.tao = pd.read_csv(cfg.get_filename_fold('thresholds'))
-        else:
-            eps = Dataset.GetTollerance(x)
-            if x_ts is not None and y_ts is not None:
-                x0, y0 = self.getRelevant(x, y)
-            else:
-                x0, y0 = self.getRelevant(x, y)
-            if cfg.logger:
-                print(f"Computing {len(x0)} Counterfactuals", file=open(cfg.get_filename('logger'),mode='a'))
-            xCE, yCE = self.getCounterfactualExplanations(x0, y0, eps)
-            self.tao = self.getCounterfactualThresholds(x0, xCE, eps)
-            if self.compress:
-                self.tao = self.compressThresholds(self.tao)
-
-            self.tao.to_csv(cfg.get_filename_fold('thresholds'), index=False)
+        eps = Dataset.GetTollerance(x)
+        x0, y0 = self.getRelevant(x, y)
+        xCE, yCE = self.getCounterfactualExplanations(x0, y0, eps)
+        self.tao = self.getCounterfactualThresholds(x0, xCE, eps)
+        if self.compress:
+            self.tao = self.compressThresholds(self.tao)
 
         if self.Q is not None:
             self.tao = self.chooseQ(x, y)
 
-        print(f'Time needed for fitting the FCCA discretizer: {time.time()-t0} seconds', file=open(cfg.get_filename('logger'),mode='a'))
+        print(f'Time needed for fitting the FCCA discretizer: {time.time()-t0} seconds')
 
     def chooseQ(self, x, y, estimator=DecisionTreeClassifier(max_depth=4), split=None, tradeoff=0.8):
         levels = [0, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.98, 0.99]
         if self.Q=='KFold':
             if split is None:
-                split = list(StratifiedKFold(cfg.k).split(x, y))
+                split = list(StratifiedKFold(k=5).split(x, y))
             else:
                 split = list(split)
             best_score = -1
@@ -184,7 +172,7 @@ class FCCA(Discretizer):
         return thresholds
 
     def getCounterfactualExplanations(self, x0, y0, eps):
-        solver = CounterfactualExplanation(self.estimator, lambda0=self.lambda0, lambda1=self.lambda1, lambda2=self.lambda2, eps=eps)
+        solver = CounterfactualExplanation(self.estimator, lambda0=self.lambda0, lambda1=self.lambda1, lambda2=self.lambda2, eps=eps, timelimit=self.timelimit)
         xCE, yCE = solver.compute(x0, y0)
         return xCE, yCE
 
@@ -194,7 +182,6 @@ class FCCA(Discretizer):
                             (np.max(self.estimator.predict_proba(x), axis=1) >= self.p0) &
                             (np.max(self.estimator.predict_proba(x), axis=1) <= self.p1))[0]
         except:
-            #warnings.warn(f"Disabling probability control in FCCA.getRelevant for estimator of class {self.estimator.__class__}")
             index = np.where((self.estimator.predict(x) == y) &
                             (np.max(self.estimator._predict_proba_lr(x), axis=1) >= self.p0) &
                             (np.max(self.estimator._predict_proba_lr(x), axis=1) <= self.p1))[0]
@@ -212,4 +199,3 @@ class GTRE(Discretizer):
         _,_,self.tao,_ = compute_thresholds(x.copy(), y.copy(), self.n_estimators, self.max_depth)
         self.tao = pd.DataFrame(data={'Feature':[self.tao[i].split('<=')[0] for i in range(len(self.tao))],
                                       'Threshold':[float(self.tao[i].split('<=')[1]) for i in range(len(self.tao))]})
-        print(f'Time needed for fitting the GTRE discretizer: {time.time()-t0} seconds', file=open(cfg.get_filename('logger'),mode='a'))

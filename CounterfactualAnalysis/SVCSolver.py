@@ -3,10 +3,10 @@ from gurobipy import quicksum
 from CounterfactualAnalysis.gurobiSolver import CESolver
 
 class CESolver_SVC(CESolver):
-    def __init__(self, estimator, lambda0, lambda1, lambda2, eps):
+    def __init__(self, estimator, lambda0, lambda1, lambda2, eps, timelimit):
         if isinstance(estimator,SVC) and estimator.kernel!='linear':
             raise ModuleNotFoundError(f"CounterfactualExplanation solver not implemented for estimator {estimator.__class__} with non-linear kernel")
-        super().__init__(estimator, lambda0, lambda1, lambda2, eps)
+        super().__init__(estimator, lambda0, lambda1, lambda2, eps, timelimit)
 
 
     def initialize_model(self):

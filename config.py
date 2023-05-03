@@ -6,8 +6,6 @@ class Config:
     def __init__(self):
         self.data_base_dir = "datasets"  # Directory for datasets
 
-        self.timelimit = 1*60
-
         self.seed = 100
         self.k = 5
         self.gosdt_timelimit = 10*60
@@ -38,10 +36,9 @@ class Config:
         self.lambda1 = 1
         self.lambda2 = 0.0
 
-        self.results_base_dir = "results"  # Directory for results
+        self.results_base_dir = "results_others"  # Directory for results
 
         self.fold = ""
-        self.load_thresholds = True
 
     def set_name(self, name):
         self.name = name

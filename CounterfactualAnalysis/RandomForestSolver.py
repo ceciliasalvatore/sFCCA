@@ -4,8 +4,8 @@ from gurobipy import quicksum
 from CounterfactualAnalysis.TreeEnsembleSolver import CESolver_TreeEnsemble
 
 class CESolver_RandomForest(CESolver_TreeEnsemble):
-    def __init__(self, estimator, lambda0, lambda1, lambda2, eps):
-        super().__init__(estimator, lambda0, lambda1, lambda2, eps)
+    def __init__(self, estimator, lambda0, lambda1, lambda2, eps, timelimit):
+        super().__init__(estimator, lambda0, lambda1, lambda2, eps, timelimit)
         self.T = self.estimator.n_estimators
         self.M1 = 1
         self.M2 = 1

@@ -3,10 +3,8 @@ import warnings
 import gurobipy as grb
 from gurobipy import GRB, quicksum
 
-from config import cfg
-
 class CESolver():
-    def __init__(self, estimator, lambda0, lambda1, lambda2, eps):
+    def __init__(self, estimator, lambda0, lambda1, lambda2, eps, timelimit):
         self.estimator = estimator
         try:
             self.F = self.estimator.n_features_in_
@@ -21,7 +19,7 @@ class CESolver():
         self.M0 = 1
 
         self.model = grb.Model()
-        self.model.setParam(GRB.Param.TimeLimit, cfg.timelimit)
+        self.model.setParam(GRB.Param.TimeLimit, timelimit)
         self.model.Params.LogToConsole = 0
         self.reset = []
 
@@ -61,7 +59,6 @@ class CESolver():
         t0 = time.time()
         self.model.optimize()
         if self.model.getAttr('Status')!=GRB.Status.OPTIMAL:
-            print(f"Not Optimal Counterfactual, exit code {self.model.getAttr('Status')}", file=open(cfg.get_filename('logger'),mode='a'))
             warnings.warn(f'Gurobi Optimization completed not to optimality, exit status {self.model.getAttr("Status")}')
         #print(f"Gurobi Optimal Solution {self.model.getAttr('ObjVal')} found in {time.time()-t0} s")
         return self.model.getAttr('X',self.xCE).values()

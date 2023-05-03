@@ -23,8 +23,7 @@ if __name__ == '__main__':
 
         if cfg.logger:
             print(f"---- {name}-{cfg.seed} ----", file=open(cfg.get_filename('logger'), mode='w'))
-            if cfg.load_thresholds==False:
-                print(f"p, t", file=open(cfg.get_filename('counterfactuals_time'), mode='w'))
+            print(f"p, t", file=open(cfg.get_filename('counterfactuals_time'), mode='w'))
 
         if cfg.target_model == GradientBoostingClassifier:
             model = GridSearchCV(GradientBoostingClassifier(n_estimators=cfg.target_nestimators,learning_rate=0.1,random_state=cfg.seed),param_grid={'max_depth':[1,2,3]},cv=cfg.k)
