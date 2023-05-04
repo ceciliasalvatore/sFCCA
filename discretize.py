@@ -82,6 +82,8 @@ class FCCA(Discretizer):
         self.timelimit = timelimit
 
     def fit(self, x, y):
+        if np.any(np.min(x)<0) or np.any(np.min(x)>1):
+            raise Exception('Data must be scaled between 0 and 1 to apply the FCCA discretizer')
         t0 = time.time()
         self.estimator.fit(x, y)
 
