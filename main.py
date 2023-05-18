@@ -19,7 +19,7 @@ from config import cfg
 
 if __name__ == '__main__':
     datasets = ['boston', 'arrhythmia', 'ionosphere', 'magic', 'particle', 'vehicle']
-    datasets = ['vehicle']
+
     for name in datasets:
         np.random.seed = cfg.seed
         cfg.set_name(name)
@@ -49,8 +49,7 @@ if __name__ == '__main__':
             print(f"cv scores: {model.cv_results_['mean_test_score']}", file=open(cfg.get_filename('logger'), mode='a'))
             print(f"Target model: {cfg.target_depth}", file=open(cfg.get_filename('logger'), mode='a'))
 
-        #discretizers = ['continuous', 'gtre', 'fcca']
-        discretizers = ['fcca']
+        discretizers = ['continuous', 'gtre', 'fcca']
 
         q_list = [0, 0.7, 0.8, 0.9, 0.95]
         models = ['cart', 'gosdt']
@@ -99,6 +98,8 @@ if __name__ == '__main__':
                         x_val_discr, y_val_discr = discretizer.transform(x_val, y_val, tao_q)
 
                         if cfg.logger:
+                            correctly_classified = np.where(discretizer.estimator.predict(x_tr)==y_tr)[0]
+                            print(f"{d} fold {i} Q {Q}: inconsistency training set {discretizer.inconsistency_rate(x_tr.iloc[correctly_classified], y_tr.iloc[correctly_classified], tao_q)}", file=open(cfg.get_filename('logger'), mode='a'))
                             print(f"{d} fold {i} Q {Q}: {x_tr_discr.shape[1]} thresholds", file=open(cfg.get_filename('logger'), mode='a'))
 
                         for m in models:
@@ -255,6 +256,8 @@ if __name__ == '__main__':
                             tao_q = performance[(d, m)][Q].discretizer[i].selectThresholds(Q)
                             x_ts_discr, y_ts_discr = performance[d,m][Q].discretizer[i].transform(x_ts, y_ts, tao_q)
                             performance_test[(d,m)][Q].accuracy[i] = accuracy_score(y_ts_discr, performance[(d,m)][Q].model[i].predict(x_ts_discr))
+                            if cfg.logger:
+                                print(f'{d}-{m} fold {i} Q {Q}: accuracy on test set: {performance_test[(d,m)][Q].accuracy[i]}', file=open(cfg.get_filename('logger'), mode='a'))
                 else:
                     performance_test[(d,m)] = Performance()
                     for i in performance[(d,m)].model.keys():
@@ -280,19 +283,29 @@ if __name__ == '__main__':
             pass
 
         if ('gtre','cart') in performance.keys():
-            ThresholdsFolds = pd.DataFrame(index=dataset.feature_columns, columns=np.round(np.arange(0, 1, 0.1), decimals=2), data=0)
+            vmap = {'N':-1, 'Y':1}
+            ThresholdsFolds = pd.DataFrame(index=dataset.feature_columns, columns=np.round(np.arange(0, 1, 0.1), decimals=2), data=np.nan)
             for fold in performance['gtre','cart'].discretizer.keys():
                 Thresholds = performance['gtre','cart'].discretizer[fold].tao.copy()
-                if 'Count' not in Thresholds.columns:
-                    Thresholds['Count'] = 1
+                Thresholds['Value'] = vmap['Y']
                 Thresholds['Threshold'] = np.floor(Thresholds['Threshold'].astype(float) * 10) / 10
-                Thresholds = Thresholds.groupby(['Feature', 'Threshold']).sum().reset_index()
-                Thresholds = Thresholds.reset_index().pivot(index='Feature', columns='Threshold', values='Count')
-                Thresholds = Thresholds.replace(np.nan, 0)
+                Thresholds = Thresholds.groupby(['Feature', 'Threshold'])['Value'].min().reset_index()
+                Thresholds = Thresholds.reset_index().pivot(index='Feature', columns='Threshold', values='Value')
                 ThresholdsFolds.update(Thresholds)
-            ThresholdsFolds = ThresholdsFolds / np.max(ThresholdsFolds.to_numpy())
-            ThresholdsFolds[ThresholdsFolds > 0] = 1
-            sns.heatmap(ThresholdsFolds, cmap="YlOrBr", cbar=False)
+            if len(dataset.feature_columns)>=50:
+                figsize = (6.4, 4.8 * 1.5)
+            else:
+                figsize = (6.4, 4.8)
+            fig = plt.figure(figsize=figsize)
+            ThresholdsFolds = ThresholdsFolds.replace(np.nan, vmap['N'])
+            cmap = sns.color_palette("YlOrBr", len(vmap)+len(q_list))
+            for j in range(len(q_list)):
+                cmap.pop(1)
+            ax = sns.heatmap(ThresholdsFolds, cmap=cmap, vmin=-1.5, vmax=1.5)
+            colorbar = ax.collections[0].colorbar
+            # The list comprehension calculates the positions to place the labels to be evenly distributed across the colorbar
+            colorbar.set_ticks(list(vmap.values()))
+            colorbar.set_ticklabels(vmap.keys())
             plt.ylabel('Features')
             plt.xlabel('Thresholds')
             title = 'GTRE'
@@ -301,7 +314,7 @@ if __name__ == '__main__':
             plt.savefig(cfg.get_filename(title, 'png'))
             plt.close(fig)
 
-        if ('fcca','cart') in performance.keys():
+        """if ('fcca','cart') in performance.keys():
             for Q in [0, 0.7]:
                 ThresholdsFolds = pd.DataFrame(index=dataset.feature_columns, columns=np.round(np.arange(0, 1, 0.1), decimals=2), data=0)
                 for fold in performance['fcca','cart'][0].discretizer.keys():
@@ -328,4 +341,51 @@ if __name__ == '__main__':
                 plt.title(f'{cfg.name} - {title}')
                 plt.yticks([])
                 plt.savefig(cfg.get_filename(title, 'png'))
-                plt.close(fig)
+                plt.close(fig)"""
+
+        if ('fcca','cart') in performance.keys():
+            ThresholdsFolds = pd.DataFrame(index=dataset.feature_columns, columns=np.round(np.arange(0, 1, 0.1), decimals=2), data=np.nan)
+            vmap = {'N':-1}
+            i=0
+            for Q in q_list:
+                vmap[Q]=i
+                i+=1
+
+            for Q in q_list:
+                for fold in performance['fcca', 'cart'][Q].discretizer.keys():
+                    Thresholds = performance['fcca', 'cart'][Q].discretizer[fold].selectThresholds(Q).copy()
+                    Thresholds['Value'] = vmap[Q]
+                    Thresholds['Threshold'] = np.floor(Thresholds['Threshold'].astype(float) * 10) / 10
+                    Thresholds = Thresholds.groupby(['Feature', 'Threshold'])['Value'].min().reset_index()
+                    Thresholds = Thresholds.reset_index().pivot(index='Feature', columns='Threshold', values='Value')
+                    ThresholdsFolds.update(Thresholds)
+            ThresholdsFolds = ThresholdsFolds.replace(np.nan, -1)
+
+            cmap = sns.color_palette("YlOrBr", len(vmap)+1)
+            cmap.pop(1)
+
+            if len(dataset.feature_columns) >= 50:
+                figsize = (6.4, 4.8 * 1.5)
+            else:
+                figsize = (6.4, 4.8)
+            fig = plt.figure(figsize=figsize)
+            ax = sns.heatmap(ThresholdsFolds, cmap=cmap, vmin=-1.5, vmax=i-0.5)
+            # Get the colorbar object from the Seaborn heatmap
+            colorbar = ax.collections[0].colorbar
+            # The list comprehension calculates the positions to place the labels to be evenly distributed across the colorbar
+            colorbar.set_ticks(list(vmap.values()))
+            colorbar.set_ticklabels(vmap.keys())
+
+            plt.ylabel('Features')
+            plt.xlabel('Thresholds')
+            if cfg.target_model == GradientBoostingClassifier:
+                t = 'GradientBoosting'
+            if cfg.target_model == RandomForestClassifier:
+                t = 'RandomForest'
+            if cfg.target_model == LinearSVC:
+                t = 'SVM'
+            title = f'FCCA {t}'
+            plt.title(f'{cfg.name} - {title}')
+            plt.yticks([])
+            plt.savefig(cfg.get_filename(title, 'png'))
+            plt.close(fig)

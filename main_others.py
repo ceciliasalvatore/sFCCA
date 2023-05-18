@@ -106,24 +106,42 @@ if __name__ == '__main__':
             plt.close(fig)
 
         for t in targets:
-            for Q in [0, 0.7]:
-                ThresholdsFolds = pd.DataFrame(index=dataset.feature_columns, columns=np.round(np.arange(0, 1, 0.1), decimals=2), data=0)
+            ThresholdsFolds = pd.DataFrame(index=dataset.feature_columns, columns=np.round(np.arange(0, 1, 0.1), decimals=2), data=np.nan)
+            vmap = {'N':-1}
+            i=0
+            for Q in q_list:
+                vmap[Q]=i
+                i+=1
+
+            for Q in q_list:
                 for fold in performance[t][Q].discretizer.keys():
                     Thresholds = performance[t][Q].discretizer[fold].selectThresholds(Q).copy()
-                    if 'Count' not in Thresholds.columns:
-                        Thresholds['Count'] = 1
+                    Thresholds['Value'] = vmap[Q]
                     Thresholds['Threshold'] = np.floor(Thresholds['Threshold'].astype(float) * 10) / 10
-                    Thresholds = Thresholds.groupby(['Feature', 'Threshold']).sum().reset_index()
-                    Thresholds = Thresholds.reset_index().pivot(index='Feature', columns='Threshold', values='Count')
-                    Thresholds = Thresholds.replace(np.nan, 0)
+                    Thresholds = Thresholds.groupby(['Feature', 'Threshold'])['Value'].min().reset_index()
+                    Thresholds = Thresholds.reset_index().pivot(index='Feature', columns='Threshold', values='Value')
                     ThresholdsFolds.update(Thresholds)
-                ThresholdsFolds = ThresholdsFolds / np.max(ThresholdsFolds.to_numpy())
-                ThresholdsFolds[ThresholdsFolds > 0] = 1
-                sns.heatmap(ThresholdsFolds, cmap="YlOrBr", cbar=False)
-                plt.ylabel('Features')
-                plt.xlabel('Thresholds')
-                title = f'FCCA Q={Q} with {t}'
-                plt.title(title)
-                plt.yticks([])
-                plt.savefig(cfg.get_filename(title, 'png'))
-                plt.close(fig)
+            ThresholdsFolds = ThresholdsFolds.replace(np.nan, -1)
+
+            cmap = sns.color_palette("YlOrBr", len(vmap)+1)
+            cmap.pop(1)
+
+            if len(dataset.feature_columns) >= 50:
+                figsize = (6.4, 4.8 * 1.5)
+            else:
+                figsize = (6.4, 4.8)
+            fig = plt.figure(figsize=figsize)
+            ax = sns.heatmap(ThresholdsFolds, cmap=cmap, vmin=-1.5, vmax=i-0.5)
+            # Get the colorbar object from the Seaborn heatmap
+            colorbar = ax.collections[0].colorbar
+            # The list comprehension calculates the positions to place the labels to be evenly distributed across the colorbar
+            colorbar.set_ticks(list(vmap.values()))
+            colorbar.set_ticklabels(vmap.keys())
+
+            plt.ylabel('Features')
+            plt.xlabel('Thresholds')
+            title = f'FCCA {t}'
+            plt.title(f'{cfg.name} - {title}')
+            plt.yticks([])
+            plt.savefig(cfg.get_filename(title, 'png'))
+            plt.close(fig)
