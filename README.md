@@ -9,6 +9,10 @@ An active Gurobi Licence is needed to run the code.
 * The testing phase also relies on the code for GOSDT trees from the paper <a href='https://proceedings.mlr.press/v119/lin20g.html'>Generalized and Scalable Optimal Sparse Decision Trees</a> and the relative guessing thresholds strategy from the paper <a href='https://ojs.aaai.org/index.php/AAAI/article/view/21194'>Fast Sparse Decision Tree Optimization via Reference Ensembles
 </a>. The code can be found at the following link <a href='https://github.com/ubc-systopia/gosdt-guesses'>https://github.com/ubc-systopia/gosdt-guesses</a>.
 
+The FCCA procedure is available in PyPI:
+```
+pip install SupervisedDiscretization
+```
 ## Hyperparameters
 The implementation of the FCCA procedure can be found in the file *discretize.py* that contains the Python class *FCCA* which takes the following parameters:
 * **estimator**: an unfitted binary classifier from the <a href='https://scikit-learn.org/stable/'>sklearn</a> package. It can be one of the following: RandomForestClassifier, GradientBoosting, LinearSVC, SVC(kernel='linear'). It is also possible to take in input GridSearchCV to choose in cross validation the parameters of the estimator;
